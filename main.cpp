@@ -31,7 +31,7 @@ int main(){
 
     Model m(f);
 
-    m.printModel();
+    std::cout << m.toOBJ("", false);
 
 
     return EXIT_SUCCESS;

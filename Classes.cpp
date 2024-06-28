@@ -6,7 +6,9 @@
 #include <tuple>
 #include <sstream>
 #include <vector>
+#include <map>
 #include <iostream>
+#include <unordered_map>
 
 using std::string;
 
@@ -31,12 +33,12 @@ each line is it's own command
 # - comment can be ignored
 vt u v [w] - vertex texture command can be ignored
 
-o name -  object name of subsequent  (need to look into multiple objects if relevant)
-g name - group name for subsequent faces
+o _name -  object _name of subsequent  (need to look into multiple objects if relevant)
+g _name - group _name for subsequent _faces
 s i - shading??
-usemtl name - all following faces will use the 'name' material
-        mtllib name - .mtl files that contain materials
-        usemtl name - use a previously defined material
+usemtl _name - all following _faces will use the '_name' material
+        mtllib _name - .mtl files that contain materials
+        usemtl _name - use a previously defined material
         vp ____ - free form geometry command ???
 l v1 v2 v3 ... - polyline
 */
@@ -51,6 +53,7 @@ private:
     float _y;
     float _z;
 
+
 public:
     Vertex(float x, float y, float z) {
         _x = x;
@@ -58,11 +61,46 @@ public:
         _z = z;
     }
 
+    float getX() const{
+        return _x;
+    }
+
+    float getY() const{
+        return _y;
+    }
+
+    float getZ() const{
+        return _z;
+    }
+
+    bool operator==(const Vertex& other) const {
+        return _x == other._x && _y == other._y && _z == other._z;
+    }
+
+    friend string operator+(const string& lhs, const Vertex rhs){
+        return lhs + std::to_string(rhs._x) + " " + std::to_string(rhs._y) + " " + std::to_string(rhs._z) + " \n";
+    }
+
     friend std::ostream& operator<<(std::ostream& os, const Vertex& vertex) {
         os << "(" << vertex._x << ", " << vertex._y << ", " << vertex._z << ")";
         return os;
     }
+
 };
+
+
+namespace std {
+    template <>
+    struct hash<Vertex> {
+        size_t operator()(const Vertex& vertex) const {
+            size_t hx = std::hash<float>()(vertex.getX());
+            size_t hy = std::hash<float>()(vertex.getY());
+            size_t hz = std::hash<float>()(vertex.getZ());
+            return hx ^ (hy << 1) ^ (hz << 2); // Combine hash values
+        }
+    };
+}
+
 
 typedef std::vector<Vertex> Face;
 
@@ -71,20 +109,23 @@ typedef std::vector<Vertex> Face;
 class Model {
 
 private:
-    string name;
-    std::vector<Vertex> vertices;
-    std::vector<Vertex> vertexNormals;
-    std::vector<Face> faces;
+    string _name;
+    std::vector<Vertex> _vertices;
+    std::vector<Vertex> _vertexNormals;
+    std::vector<Face> _faces;
+    std::unordered_map<Vertex, unsigned long> _vertexIndexMap;
+
 
 public:
-    explicit Model(std::ifstream &objectFile) {
+     explicit Model(std::ifstream &objectFile) {
         string line;
 
         while(getline(objectFile, line)){
             std::istringstream command(line);
             string token;
+            string commandRead;
             while (command >> token){
-                Model::factory(token, command);
+                commandRead = Model::factory(token, command); // commandRead is for debugging
             }
         }
 
@@ -93,7 +134,7 @@ public:
 
     string factory(const string& command, std::istringstream &stream) {
         if (command == "o") {
-            stream >> name;
+            stream >> _name;
             return "Name";
         }
         if (command == "v") {
@@ -101,7 +142,9 @@ public:
             stream >> x;
             stream >> y;
             stream >> z;
-            vertices.emplace_back(x,y,z);
+            Vertex v(x,y,z);
+            _vertices.push_back(v);
+            _vertexIndexMap[v] = _vertices.size();
             return "Vertex";
         }
         if (command == "vn"){
@@ -109,67 +152,59 @@ public:
             stream >> x;
             stream >> y;
             stream >> z;
-            vertexNormals.emplace_back(x,y,z);
+            _vertexNormals.emplace_back(x, y, z);
             return "VertexNormals";
         }
 //    f v1[/vt1][/vn1] v2[/vt2][/vn2] v3[/vt3][/vn3]... each vertext can come with vt and vn commands
 //    f v1//vn1 ... ********** values can be negative ********
         if (command == "f"){
             string faceVex;
-            std::vector<int> verteces;
-            std::vector<int> vertecesTex;
-            std::vector<int> vertecesNorm;
+            std::vector<int> vert;
+            std::vector<int> vertTex;
+            std::vector<int> vertNorm;
 
             string temp;
             while (std::getline(stream, temp, '/')){
-                verteces.emplace_back(std::stoi(temp));
+                vert.emplace_back(std::stoi(temp));
                 std::getline(stream, temp, '/');
-                vertecesTex.emplace_back(std::stoi(temp));
-                std::getline(stream, temp);
-                vertecesNorm.emplace_back(std::stoi(temp));
+                vertTex.emplace_back(std::stoi(temp));
+                std::getline(stream, temp, ' ');
+                vertNorm.emplace_back(std::stoi(temp));
             }
 
             Face f;
-            for (int index: verteces){
-                f.push_back(vertices[index]);
+            for (int index: vert){
+                f.push_back(_vertices[index-1]);
             }
-            faces.push_back(f);
-
-
+            _faces.push_back(f);
             return "Faces";
         }
         return "Ignored";
     }
 
-    void printModel() {
-        std::cout << "Model: " << name << std::endl;
+    string toOBJ(string filePath, bool export_ =true) {
 
-        std::cout << "Vertices:" << std::endl;
-        for (const auto& vertex : vertices) {
-            // Assuming Vertex class has a method to print its properties
-            std::cout << vertex;
-            // Example: vertex.print();
+        string file  = "o " + _name + "\n";
+        for (const auto& vertex : _vertices) {
+            file += "v " + vertex;
         }
-        std::cout << std::endl;
-
-        std::cout << "Vertex Normals:" << std::endl;
-        for (const auto& normal : vertexNormals) {
-            // Assuming Vertex class has a method to print its properties
-            std::cout << normal;
-            // Example: normal.print();
+        for (const auto& normal : _vertexNormals) {
+            file += "vn " + normal;
         }
-        std::cout << std::endl;
-
-
-        std::cout << "Faces:" << std::endl;
-        for (const auto& face : faces) {
-            // Assuming Face class has a method to print its properties
+        for (const auto& face : _faces) {
+            file += "f ";
             for (const auto& v: face){
-                std::cout << v << " ";
+                file += std::to_string(_vertexIndexMap[v]) + " ";
             }
-            std::cout << std::endl;
-            // Example: face.print();
+            file += "\n";
         }
+
+        if (export_){
+            std::ofstream MyFile(filePath);
+            MyFile << file;
+            MyFile.close();
+        }
+        return file;
     }
 };
 
