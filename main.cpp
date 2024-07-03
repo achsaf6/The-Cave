@@ -10,6 +10,8 @@ TODO take into account:
     freeform curves/surfaces are a thing (find an example to use as well maybe the blender chimp?) NURBS command starts with vp
     more than 3 vertexes per face
 
+    Sobel Filter for edge detection
+
 TODO things to add:
     CameraObject
     - gets object to look at
