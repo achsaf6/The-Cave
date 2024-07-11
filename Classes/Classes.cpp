@@ -187,6 +187,7 @@ std::string Model::toOBJ(std::string filePath, bool export_) {
     return file;
 }
 
+//TODO dir is unnecessary, the camera faces the negative Z axis
 // Camera class implementation
 Camera::Camera(const Vect3& origin, const Vect3& dir) : _origin(origin), _dir(dir) {
     // Point toward (0, 0, 0)
