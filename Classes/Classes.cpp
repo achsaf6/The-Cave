@@ -163,7 +163,8 @@ std::string Model::factory(const std::string& command, std::istringstream &strea
     return "Ignored";
 }
 
-std::string Model::toOBJ(std::string filePath, bool export_) {
+std::string Model::toOBJ(const std::string& filePath) {
+    bool export_ = !(filePath.empty());
     std::string file = "o " + _name + "\n";
     for (const auto& vertex : _vertices) {
         file += "v " + vertex;
@@ -187,13 +188,48 @@ std::string Model::toOBJ(std::string filePath, bool export_) {
     return file;
 }
 
-//TODO dir is unnecessary, the camera faces the negative Z axis
 // Camera class implementation
-Camera::Camera(const Vect3& origin, const Vect3& dir) : _origin(origin), _dir(dir) {
-    // Point toward (0, 0, 0)
-    if (dir == Vect3::ZERO) {
-        Vect3 ray = -origin;
-    }
-    // Build canvas towards (0,0,0) from origin point
+
+
+// get model
+// find relative position
+// Generate Canvas
+//ray trace?
+
+
+Canvas::Canvas (int rows, int cols): _rows(rows), _cols(cols){
+  _strokes.assign(_rows*_cols, ' ');
 }
 
+//automatic camera position
+Camera::Camera (const Model &model) : _canvas (getResolution())
+{
+  //TODO calc variance and find most aesthetic angle
+  //For now all models are small so were gonna have a set distance
+  _origin = {4,4,4};
+  //TODO camera needs to point towards center?
+
+}
+
+//Custom camera position
+Camera::Camera(Vect3& origin) : _origin(origin), _canvas (getResolution())
+{
+}
+
+
+Canvas Camera::getResolution() {
+
+//  TODO likely send this to a utils folder to run per operating system
+  FILE* pipe = popen("echo $LINES && echo $COLUMNS", "r");
+  if (!pipe) {
+    std::cerr << "Failed to open pipe." << std::endl;
+    return {-1,-1};
+  }
+  char buffer[128];
+  fgets(buffer, sizeof(buffer), pipe);
+  int rows = atoi(buffer);
+  fgets(buffer, sizeof(buffer), pipe);
+  int cols = atoi(buffer);
+  pclose(pipe);
+  return {rows, cols};
+}

@@ -1,6 +1,6 @@
 # Blender 4.1.1
 # www.blender.org
-mtllib Ico.mtl
+
 o Icosphere
 v 0.302699 -1.092467 -0.035656
 v 1.026306 -0.539687 0.490069

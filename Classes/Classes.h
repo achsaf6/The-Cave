@@ -7,6 +7,7 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <cstdio>
 
 class Vect3 {
 private:
@@ -71,21 +72,32 @@ public:
     explicit Model(std::ifstream &objectFile, bool center=true);
 
     std::string factory(const std::string& command, std::istringstream &stream);
-    std::string toOBJ(std::string filePath, bool export_ = true);
+    std::string toOBJ(const std::string& filePath="");
 
     void readFile(std::ifstream &objectFile);
 
     void centering();
 };
 
+class Canvas{
+ private:
+    int _rows;
+    int _cols;
+    std::string _strokes; //Like in painting
+
+ public:
+  Canvas(int rows, int cols);
+};
+
 class Camera {
 private:
     Vect3 _origin;
-    Vect3 _dir;
-    std::vector<std::vector<Vect3>> _canvas;
-
+    Canvas _canvas;
+    void init();
 public:
-    Camera(const Vect3& origin, const Vect3& dir = Vect3());
+  Camera(Vect3& origin);
+  Camera(const Model& model);
+  Canvas getResolution();
 };
 
 #endif // CLASSES_H
