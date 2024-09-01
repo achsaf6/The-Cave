@@ -55,12 +55,23 @@ public:
 
 class Canvas{
  private:
-    int _rows;
-    int _cols;
+    float _rows;
+    float _cols;
+    float _aspectRatio;
     std::string _strokes; //Like in painting
 
  public:
   Canvas(int rows, int cols);
+  float rows() const;
+  float cols() const;
+  float getNDCx(int x);
+  float getNDCy(int y);
+  void draw(char c, int x, int y);
+
+  char& operator[] (size_t index);
+  const char& operator[] (size_t index) const;
+  friend std::ostream& operator<<(std::ostream& os, const Canvas& c);
+
 /**
 TODO this class will be in charge of all the changes from raster to ndc space
  that way the camera object only works with vectors
@@ -82,6 +93,11 @@ public:
   Camera(const Model& model);
   Camera(Eigen::Vector3d& origin);
   Canvas getResolution();
+  bool solveQuadratic(const float &a, const float &b, const float &c,
+                      float &x0, float &x1);
+  void rayTrace(int radius);
+  void print();
+
 };
 
 #endif // CLASSES_H

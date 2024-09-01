@@ -137,18 +137,64 @@ std::string Model::toOBJ(const std::string& filePath) {
     return file;
 }
 
+
+
+//Canvas Class implementation
+
+Canvas::Canvas (int rows, int cols): _rows(rows), _cols(cols){
+  _aspectRatio = _cols/_rows;
+  _strokes.assign(rows*cols, ' ');
+}
+
+float Canvas::rows () const
+{
+  return _rows;
+}
+
+float Canvas::cols () const
+{
+  return _cols;
+}
+
+float Canvas::getNDCx(int x)
+{
+
+  return 2*(x/_rows) - 1;
+}
+
+float Canvas::getNDCy(int y)
+{
+  return (2*((y)/_cols) - 1)*_aspectRatio;
+}
+void Canvas::draw (char c, int x, int y)
+{
+  _strokes[x*_cols + y] = c;
+}
+char& Canvas::operator[] (size_t index)
+{
+  return _strokes[index];
+}
+const char& Canvas::operator[] (size_t index) const
+{
+  return _strokes[index];
+}
+
+std::ostream& operator<<(std::ostream& os, const Canvas& c){
+  std::string output = c._strokes;
+  for (int i = c._rows ; i > 0 ; i--){
+    output.insert(i*c._cols, "\n");
+  }
+  os << output;
+  return os;
+}
+
+
+
+
+
 // Camera class implementation
 
 
-// get model
-// find relative position
-// Generate Canvas
-//ray trace?
-
-
-Canvas::Canvas (int rows, int cols): _rows(rows), _cols(cols){
-  _strokes.assign(_rows*_cols, ' ');
-}
 
 //automatic camera position
 Camera::Camera (const Model &model) : _canvas (getResolution())
@@ -186,8 +232,11 @@ Camera::Camera(Eigen::Vector3d& origin) : _origin(origin), _canvas (getResolutio
 
 
 Canvas Camera::getResolution() {
-
+//  TODO figure out why this behaves differently from 'run' to 'debug'
+//   alternatively figure out if it matters (if I can compile )
 //  TODO likely send this to a utils folder to run per operating system
+
+
 
 //currently designed for linux
   FILE* pipe = popen("echo $LINES && echo $COLUMNS", "r");
@@ -197,9 +246,54 @@ Canvas Camera::getResolution() {
   }
   char buffer[128];
   fgets(buffer, sizeof(buffer), pipe);
+  std::cout << buffer;
   int rows = atoi(buffer);
   fgets(buffer, sizeof(buffer), pipe);
+  std::cout << buffer;
   int cols = atoi(buffer);
+
   pclose(pipe);
   return {rows, cols};
 }
+
+bool Camera::solveQuadratic(const float &a, const float &b, const float &c,
+                            float &x0, float &x1) {
+  float discr = b * b - 4 * a * c;
+  if (discr < 0) return false;
+  else if (discr == 0) x0 = x1 = -0.5 * b / a;
+  else {
+    float q = (b > 0) ?
+              -0.5 * (b + sqrt(discr)) :
+              -0.5 * (b - sqrt(discr));
+    x0 = q / a;
+    x1 = c / q;
+  }
+  if (x0 > x1) std::swap(x0, x1);
+
+  return true;
+}
+
+void Camera::rayTrace(int radius)
+{
+  for (int i=0 ; i < _canvas.rows() ; i++){
+    for (int j=0 ; j < _canvas.cols() ; j++){
+      float s1 = _canvas.getNDCx (i);
+      float s2 = _canvas.getNDCy (j);
+      Eigen::Vector3d dir = _cPoint0 + s1*_cVec1 + s2*_cVec2;
+      float x0, x1;
+      float a = dir.dot(dir);
+      float b = 2*_origin.dot(dir);
+      float c = _origin.dot(_origin) - radius*radius;
+      if (solveQuadratic (a, b, c, x0, x1)){
+        _canvas.draw('*', i, j);
+      }
+    }
+  }
+}
+void Camera::print ()
+{
+  std::cout << _canvas << std::endl;
+}
+
+
+
