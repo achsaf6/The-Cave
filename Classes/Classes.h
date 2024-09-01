@@ -8,65 +8,39 @@
 #include <fstream>
 #include <sstream>
 #include <cstdio>
+#include <Eigen/Dense>
 
-class Vect3 {
-private:
-    float _x;
-    float _y;
-    float _z;
-
-public:
-    Vect3();
-    Vect3(float x, float y, float z);
-    Vect3(const Vect3& other);
-
-    static const Vect3 ZERO;
-    static const Vect3 ONE;
-
-    float getX() const;
-    float getY() const;
-    float getZ() const;
-
-    bool operator==(const Vect3& other) const;
-    friend Vect3 operator-(const Vect3& lhs, const Vect3& rhs);
-    friend Vect3 operator-(const Vect3& rhs);
-    friend Vect3 operator+(const Vect3& lhs, const Vect3& rhs);
-    friend Vect3 operator/(const Vect3& lhs, float rhs);
-    Vect3& operator+=(const Vect3& other);
-    friend std::string operator+(const std::string& lhs, const Vect3 rhs);
-    friend std::ostream& operator<<(std::ostream& os, const Vect3& vertex);
-};
 
 namespace std {
     template <>
-    struct hash<Vect3> {
-        size_t operator()(const Vect3& vertex) const;
+    struct hash<Eigen::Vector3d> {
+        size_t operator()(const Eigen::Vector3d& vertex) const;
     };
 }
 
 class Face {
 private:
-    std::vector<Vect3> _verteces;
-    Vect3 _normal;
+    std::vector<Eigen::Vector3d> _verteces;
+    Eigen::Vector3d _normal;
 
 public:
     Face();
-    Face(Vect3& normal);
+    Face(Eigen::Vector3d& normal);
 
-    void push_back(Vect3& vertex);
-    std::vector<Vect3> getVerts();
-    Vect3 getNorm();
+    void push_back(Eigen::Vector3d& vertex);
+    std::vector<Eigen::Vector3d> getVerts();
+    Eigen::Vector3d getNorm();
 };
 
 class Model {
 private:
     std::string _name;
-    std::vector<Vect3> _vertices;
-    std::vector<Vect3> _vertexNormals;
+    std::vector<Eigen::Vector3d> _vertices;
+    std::vector<Eigen::Vector3d> _vertexNormals;
     std::vector<Face> _faces;
-    std::unordered_map<Vect3, unsigned long> _vertexIndexMap;
-    std::unordered_map<Vect3, unsigned long> _normalIndexMap;
-    Vect3 _centerVector = Vect3::ZERO;
+    std::unordered_map<Eigen::Vector3d, unsigned long> _vertexIndexMap;
+    std::unordered_map<Eigen::Vector3d, unsigned long> _normalIndexMap;
+    Eigen::Vector3d _centerVector = Eigen::Vector3d(0,0,0);
 
 public:
     explicit Model(std::ifstream &objectFile, bool center=true);
@@ -87,16 +61,26 @@ class Canvas{
 
  public:
   Canvas(int rows, int cols);
+/**
+TODO this class will be in charge of all the changes from raster to ndc space
+ that way the camera object only works with vectors
+ REMINDER: - Return values [-1,1]
+           - Take aspect ratio into account
+
+**/
 };
 
 class Camera {
 private:
-    Vect3 _origin;
-    Canvas _canvas;
-    void init();
+  Eigen::Vector3d _origin;
+  Eigen::Vector3d _cPoint0;
+  Eigen::Vector3d _cVec1;
+  Eigen::Vector3d _cVec2;
+  Canvas _canvas;
+
 public:
-  Camera(Vect3& origin);
   Camera(const Model& model);
+  Camera(Eigen::Vector3d& origin);
   Canvas getResolution();
 };
 

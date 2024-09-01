@@ -24,7 +24,7 @@ TODO things to add:
 
 int main(){
 
-    std::ifstream f("../Ico.obj");
+    std::ifstream f("../Cube.obj");
     if (!f.is_open()){
         std::cerr << "Unable to open file" << std::endl;
         return EXIT_FAILURE;
@@ -32,16 +32,12 @@ int main(){
 
     Model m(f);
 
-//    std::cout << m.toOBJ("../Test");
-    FILE* pipe = popen("ls", "r");
+//    std::cout << m.toOBJ();
 
-    char buffer[128];
 
-    while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
-      std::cout << buffer;
-    }
+  Camera c(m);
 
-    pclose(pipe);
 
-    return EXIT_SUCCESS;
+
+  return EXIT_SUCCESS;
 }
