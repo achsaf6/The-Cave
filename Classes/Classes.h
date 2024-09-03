@@ -4,6 +4,8 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include <sys/ioctl.h>
+#include <unistd.h>
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -72,13 +74,6 @@ class Canvas{
   const char& operator[] (size_t index) const;
   friend std::ostream& operator<<(std::ostream& os, const Canvas& c);
 
-/**
-TODO this class will be in charge of all the changes from raster to ndc space
- that way the camera object only works with vectors
- REMINDER: - Return values [-1,1]
-           - Take aspect ratio into account
-
-**/
 };
 
 class Camera {

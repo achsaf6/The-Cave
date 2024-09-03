@@ -36,22 +36,15 @@ int main(){
 
 
 
-//    int x = 120;
-//    int y = 30;
-//    Canvas cvs(x, y);
-//    std::cout << "Canvas Tests:\n" << x << ":" << y << std::endl <<
-//    cvs.getNDCx(0) << std::endl <<
-//    cvs.getNDCx(x) << std::endl <<
-//    cvs.getNDCy(0) << std::endl <<
-//    cvs.getNDCy(y) << std::endl <<
-//    cvs.getNDCx(x/2) << std::endl <<
-//    cvs.getNDCy(y/2) << std::endl <<
-//    cvs.getNDCy(y - 3) << std::endl;
 
     Camera c(m);
+
     c.rayTrace (1);
     c.print();
 
+//TODO intersect triangle
+//TODO calculate normals
+//TODO "brightness" of letters (is there a better font?)
 
 
     return EXIT_SUCCESS;

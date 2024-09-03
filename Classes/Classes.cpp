@@ -164,7 +164,7 @@ float Canvas::getNDCx(int x)
 
 float Canvas::getNDCy(int y)
 {
-  return (2*((y)/_cols) - 1)*_aspectRatio;
+  return ((2*((y)/_cols) - 1)*_aspectRatio) /2.5; //TODO divide by char dimensions
 }
 void Canvas::draw (char c, int x, int y)
 {
@@ -239,21 +239,21 @@ Canvas Camera::getResolution() {
 
 
 //currently designed for linux
-  FILE* pipe = popen("echo $LINES && echo $COLUMNS", "r");
-  if (!pipe) {
-    std::cerr << "Failed to open pipe." << std::endl;
+
+#ifdef DEBUG
+
+return {23, 150};
+
+#else
+  struct winsize w;
+  if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) == -1) {
+    std::cerr << "Failed to get terminal size." << std::endl;
     return {-1,-1};
   }
-  char buffer[128];
-  fgets(buffer, sizeof(buffer), pipe);
-  std::cout << buffer;
-  int rows = atoi(buffer);
-  fgets(buffer, sizeof(buffer), pipe);
-  std::cout << buffer;
-  int cols = atoi(buffer);
-
-  pclose(pipe);
-  return {rows, cols};
+  std::cout << "Output: " << w.ws_row << std::endl;
+  std::cout << "Output: " << w.ws_col << std::endl;
+  return {w.ws_row, w.ws_col};
+#endif
 }
 
 bool Camera::solveQuadratic(const float &a, const float &b, const float &c,
@@ -279,6 +279,8 @@ void Camera::rayTrace(int radius)
     for (int j=0 ; j < _canvas.cols() ; j++){
       float s1 = _canvas.getNDCx (i);
       float s2 = _canvas.getNDCy (j);
+
+      //This works for a sphere, not much else...
       Eigen::Vector3d dir = _cPoint0 + s1*_cVec1 + s2*_cVec2;
       float x0, x1;
       float a = dir.dot(dir);
