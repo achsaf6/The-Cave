@@ -20,18 +20,23 @@ namespace std {
     };
 }
 
+
+typedef std::array<Eigen::Vector3d, 3> triangle;
+
 class Face {
 private:
-    std::vector<Eigen::Vector3d> _verteces;
+    std::vector<Eigen::Vector3d> _v;
+    std::vector<triangle> _triangles;
     Eigen::Vector3d _normal;
 
 public:
     Face();
     Face(Eigen::Vector3d& normal);
-
     void push_back(Eigen::Vector3d& vertex);
     std::vector<Eigen::Vector3d> getVerts();
     Eigen::Vector3d getNorm();
+    bool intersect(const Eigen::Vector3d &orig, const Eigen::Vector3d &dir);
+    void triangulate ();
 };
 
 class Model {
@@ -49,10 +54,11 @@ public:
 
     std::string factory(const std::string& command, std::istringstream &stream);
     std::string toOBJ(const std::string& filePath="");
-
     void readFile(std::ifstream &objectFile);
-
     void centering();
+    bool intersect(const Eigen::Vector3d& orig, const Eigen::Vector3d& dir,
+                   Eigen::Vector3d& normal) const;
+
 };
 
 class Canvas{
@@ -78,6 +84,7 @@ class Canvas{
 
 class Camera {
 private:
+  const Model& _model;
   Eigen::Vector3d _origin;
   Eigen::Vector3d _cPoint0;
   Eigen::Vector3d _cVec1;
@@ -86,13 +93,10 @@ private:
 
 public:
   Camera(const Model& model);
-  Camera(Eigen::Vector3d& origin);
   Canvas getResolution();
-  bool solveQuadratic(const float &a, const float &b, const float &c,
-                      float &x0, float &x1);
-  void rayTrace(int radius);
+  void rayTrace();
   void print();
-
+  //TODO add a change camera position option
 };
 
 #endif // CLASSES_H

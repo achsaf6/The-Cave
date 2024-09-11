@@ -24,7 +24,7 @@ TODO things to add:
 
 int main(){
   std::ios::sync_with_stdio(false);
-    std::ifstream f("../Cube.obj");
+    std::ifstream f("../Face.obj");
     if (!f.is_open()){
         std::cerr << "Unable to open file" << std::endl;
         return EXIT_FAILURE;
@@ -37,10 +37,13 @@ int main(){
 
 
 
+
     Camera c(m);
 
-    c.rayTrace (1);
+    c.rayTrace();
     c.print();
+
+
 
 //TODO intersect triangle
 //TODO calculate normals

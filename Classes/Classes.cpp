@@ -18,16 +18,49 @@ Face::Face() : _normal(Eigen::Vector3d()) {}
 Face::Face(Eigen::Vector3d& normal) : _normal(normal) {}
 
 void Face::push_back(Eigen::Vector3d& vertex) {
-    _verteces.push_back(vertex);
+    _v.push_back(vertex);
+}
+
+void Face::triangulate ()
+{
+  // converts a face into a list of triangles
+  for (int i = 0 ; i < _v.size() - 2 ; i++ ){
+    _triangles.push_back({_v[i],_v[i+1],_v[i+2]});
+  }
 }
 
 std::vector<Eigen::Vector3d> Face::getVerts() {
-    return _verteces;
+    return _v;
 }
 
 Eigen::Vector3d Face::getNorm() {
     return _normal;
 }
+bool Face::intersect (const Eigen::Vector3d &orig, const Eigen::Vector3d &dir)
+{
+  if (_normal.dot(orig - dir) == 0){
+    return false;
+  }
+  double D = -_normal.dot(_v[0]);
+  double t = - (_normal.dot(orig) + D) / _normal.dot(dir);
+  Eigen::Vector3d P = orig + t*dir;
+
+
+  for (triangle tri: _triangles){
+    Eigen::Vector3d edge0 = tri[1] - tri[0];
+    Eigen::Vector3d edge1 = tri[2] - tri[1];
+    Eigen::Vector3d edge2 = tri[0] - tri[2];
+    Eigen::Vector3d C0 = P - tri[0];
+    Eigen::Vector3d C1 = P - tri[1];
+    Eigen::Vector3d C2 = P - tri[2];
+
+    if (_normal.dot(edge0.cross(C0)) > 0 && _normal.dot(edge1.cross(C1)) > 0 &&
+                                              _normal.dot(edge2.cross(C2)) > 0)
+      return true;
+  }
+  return false;
+}
+
 
 // Model class implementation
 Model::Model(std::ifstream &objectFile, bool center) {
@@ -53,7 +86,9 @@ void Model::readFile(std::ifstream &objectFile){
         std::string token;
         std::string commandRead;
         while (command >> token) { //TODO can this be done in a formatted way?
-            commandRead = Model::factory(token, command); // commandRead is for debugging
+          if (token == "#")
+            break;
+          commandRead = Model::factory(token, command); // commandRead is for debugging
         }
     }
 }
@@ -101,6 +136,7 @@ std::string Model::factory(const std::string& command, std::istringstream &strea
         for (int index : vert) {
             f.push_back(_vertices[index - 1]);
         }
+        f.triangulate();
         _faces.push_back(f);
         return "Faces";
     }
@@ -135,6 +171,18 @@ std::string Model::toOBJ(const std::string& filePath) {
         MyFile.close();
     }
     return file;
+}
+bool Model::intersect (const Eigen::Vector3d &orig, const Eigen::Vector3d &dir,
+                  Eigen::Vector3d& normal) const
+{
+  bool isIntersect = false;
+  for (Face face : _faces){
+    if (face.intersect(orig, dir)){
+      normal = face.getNorm(); //TODO find the closest intersection not the not the last one
+      isIntersect = true;
+    }
+  }
+  return isIntersect;
 }
 
 
@@ -197,7 +245,7 @@ std::ostream& operator<<(std::ostream& os, const Canvas& c){
 
 
 //automatic camera position
-Camera::Camera (const Model &model) : _canvas (getResolution())
+Camera::Camera (const Model &model) : _model(model), _canvas (getResolution())
 {
   //TODO calc variance and find most aesthetic angle
   //For now all models are small so were gonna have a set distance
@@ -217,18 +265,6 @@ Camera::Camera (const Model &model) : _canvas (getResolution())
   _cVec2 = normal.cross(_cVec1);
 }
 
-//Custom camera position
-Camera::Camera(Eigen::Vector3d& origin) : _origin(origin), _canvas (getResolution())
-{
-  // camera always points to (0,0,0)
-
-  Eigen::Vector3d normal = _origin;
-  normal.normalize();
-
-  _cPoint0 = _origin - normal;
-  _cVec1 = normal.unitOrthogonal();
-  _cVec2 = normal.cross(_cVec1);
-}
 
 
 Canvas Camera::getResolution() {
@@ -240,8 +276,9 @@ Canvas Camera::getResolution() {
 
 //currently designed for linux
 
-#ifdef DEBUG
 
+#ifdef DEBUG
+std::cout << "DEBUG MODE" << std::endl;
 return {23, 150};
 
 #else
@@ -250,30 +287,13 @@ return {23, 150};
     std::cerr << "Failed to get terminal size." << std::endl;
     return {-1,-1};
   }
-  std::cout << "Output: " << w.ws_row << std::endl;
-  std::cout << "Output: " << w.ws_col << std::endl;
+  std::cout << "Rows: " << w.ws_row << std::endl;
+  std::cout << "Cols: " << w.ws_col << std::endl;
   return {w.ws_row, w.ws_col};
 #endif
 }
 
-bool Camera::solveQuadratic(const float &a, const float &b, const float &c,
-                            float &x0, float &x1) {
-  float discr = b * b - 4 * a * c;
-  if (discr < 0) return false;
-  else if (discr == 0) x0 = x1 = -0.5 * b / a;
-  else {
-    float q = (b > 0) ?
-              -0.5 * (b + sqrt(discr)) :
-              -0.5 * (b - sqrt(discr));
-    x0 = q / a;
-    x1 = c / q;
-  }
-  if (x0 > x1) std::swap(x0, x1);
-
-  return true;
-}
-
-void Camera::rayTrace(int radius)
+void Camera::rayTrace()
 {
   for (int i=0 ; i < _canvas.rows() ; i++){
     for (int j=0 ; j < _canvas.cols() ; j++){
@@ -282,16 +302,14 @@ void Camera::rayTrace(int radius)
 
       //This works for a sphere, not much else...
       Eigen::Vector3d dir = _cPoint0 + s1*_cVec1 + s2*_cVec2;
-      float x0, x1;
-      float a = dir.dot(dir);
-      float b = 2*_origin.dot(dir);
-      float c = _origin.dot(_origin) - radius*radius;
-      if (solveQuadratic (a, b, c, x0, x1)){
+      Eigen::Vector3d normal;
+      if (_model.intersect (_origin, dir, normal)){
         _canvas.draw('*', i, j);
       }
     }
   }
 }
+
 void Camera::print ()
 {
   std::cout << _canvas << std::endl;
