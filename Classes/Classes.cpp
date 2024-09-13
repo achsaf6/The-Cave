@@ -1,7 +1,8 @@
 
 #include "Classes.h"
 
-
+#define DEBUG_CANVAS {23, 150}
+#define CHAR_RATIO 3
 
 namespace std {
     size_t hash<Eigen::Vector3d>::operator()(const Eigen::Vector3d& vertex) const {
@@ -24,9 +25,30 @@ void Face::push_back(Eigen::Vector3d& vertex) {
 void Face::triangulate ()
 {
   // converts a face into a list of triangles
-  for (int i = 0 ; i < _v.size() - 2 ; i++ ){
-    _triangles.push_back({_v[i],_v[i+1],_v[i+2]});
+  std::list<Eigen::Vector3d> tempV(_v.begin(), _v.end());
+  bool popFlag = true;
+  Eigen::Vector3d v0;
+  Eigen::Vector3d v1;
+  Eigen::Vector3d v2;
+  while (tempV.size() != 3){
+    if (popFlag){
+      v0 = tempV.front();
+      tempV.pop_front();
+    } else {
+      v0 = tempV.back();
+      tempV.pop_back();
+    }
+    v1 = tempV.front();
+    v2 = tempV.back();
+    _triangles.push_back({v0, v1, v2});
+    popFlag = !popFlag;
   }
+  v0 = tempV.front();
+  tempV.pop_front();
+  v1 = tempV.front();
+  tempV.pop_front();
+  v2 = tempV.front();
+  _triangles.push_back({v0, v1, v2});
 }
 
 std::vector<Eigen::Vector3d> Face::getVerts() {
@@ -54,8 +76,10 @@ bool Face::intersect (const Eigen::Vector3d &orig, const Eigen::Vector3d &dir)
     Eigen::Vector3d C1 = P - tri[1];
     Eigen::Vector3d C2 = P - tri[2];
 
-    if (_normal.dot(edge0.cross(C0)) > 0 && _normal.dot(edge1.cross(C1)) > 0 &&
-                                              _normal.dot(edge2.cross(C2)) > 0)
+    if (_normal.dot(edge0.cross(C0)) >= 0 && _normal.dot(edge1.cross(C1)) >=
+    0 &&
+                                              _normal.dot(edge2.cross(C2))
+                                              >= 0)
       return true;
   }
   return false;
@@ -206,13 +230,12 @@ float Canvas::cols () const
 
 float Canvas::getNDCx(int x)
 {
-
-  return 2*(x/_rows) - 1;
+  return (2*(x/_cols) - 1)*_aspectRatio;
 }
 
 float Canvas::getNDCy(int y)
 {
-  return ((2*((y)/_cols) - 1)*_aspectRatio) /2.5; //TODO divide by char dimensions
+  return ((2*((y)/_rows) - 1)) * CHAR_RATIO; //TODO divide by char dimensions
 }
 void Canvas::draw (char c, int x, int y)
 {
@@ -249,10 +272,10 @@ Camera::Camera (const Model &model) : _model(model), _canvas (getResolution())
 {
   //TODO calc variance and find most aesthetic angle
   //For now all models are small so were gonna have a set distance
-  _origin = Eigen::Vector3d(4,4,4);
+  _origin = Eigen::Vector3d(4, 4, 4);
+//  _origin = Eigen::Vector3d(8, 8, 8);
 
-  Eigen::Vector3d normal = _origin;
-  normal.normalize();
+  Eigen::Vector3d normal = _origin.normalized();
 
 
 //  we use these three points to "move" across the canvas
@@ -260,9 +283,9 @@ Camera::Camera (const Model &model) : _model(model), _canvas (getResolution())
 //  with v2
 
   _cPoint0 = _origin - normal;
-//  TODO find the vector that aligns with "up"
-  _cVec1 = normal.unitOrthogonal();
-  _cVec2 = normal.cross(_cVec1);
+  Eigen::Vector3d up(0, 0, 1);
+  _cVec1 = (up - up.dot(normal) * normal).normalized();
+  _cVec2 = (normal.cross(_cVec1)).normalized();
 }
 
 
@@ -279,7 +302,7 @@ Canvas Camera::getResolution() {
 
 #ifdef DEBUG
 std::cout << "DEBUG MODE" << std::endl;
-return {23, 150};
+return DEBUG_CANVAS;
 
 #else
   struct winsize w;
@@ -297,10 +320,9 @@ void Camera::rayTrace()
 {
   for (int i=0 ; i < _canvas.rows() ; i++){
     for (int j=0 ; j < _canvas.cols() ; j++){
-      float s1 = _canvas.getNDCx (i);
-      float s2 = _canvas.getNDCy (j);
+      float s1 = _canvas.getNDCy(i);
+      float s2 = _canvas.getNDCx(j);
 
-      //This works for a sphere, not much else...
       Eigen::Vector3d dir = _cPoint0 + s1*_cVec1 + s2*_cVec2;
       Eigen::Vector3d normal;
       if (_model.intersect (_origin, dir, normal)){

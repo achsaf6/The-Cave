@@ -37,7 +37,6 @@ int main(){
 
 
 
-
     Camera c(m);
 
     c.rayTrace();

@@ -11,7 +11,7 @@
 #include <sstream>
 #include <cstdio>
 #include <Eigen/Dense>
-
+#include <list>
 
 namespace std {
     template <>
