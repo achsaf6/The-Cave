@@ -22,6 +22,8 @@ void Face::push_back(Eigen::Vector3d& vertex) {
     _v.push_back(vertex);
 }
 
+
+//TODO make this work for non-convex shapes
 void Face::triangulate ()
 {
   // converts a face into a list of triangles
