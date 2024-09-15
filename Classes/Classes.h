@@ -35,8 +35,13 @@ public:
     void push_back(Eigen::Vector3d& vertex);
     std::vector<Eigen::Vector3d> getVerts();
     Eigen::Vector3d getNorm();
-    bool intersect(const Eigen::Vector3d &orig, const Eigen::Vector3d &dir);
+    bool intersectGEO(const Eigen::Vector3d &orig, const Eigen::Vector3d &dir);
+    bool triRayIntersectGEO (const Eigen::Vector3d &orig, const Eigen::Vector3d
+    &dir, const triangle &tri);
     void triangulate ();
+    bool intersectMT (const Eigen::Vector3d &orig, const Eigen::Vector3d &dir);
+    bool triRayIntersectMT (const Eigen::Vector3d &orig, const Eigen::Vector3d
+    &dir, const triangle &tri);
 };
 
 class Model {

@@ -4,6 +4,8 @@
 #define DEBUG_CANVAS {23, 150}
 #define CHAR_RATIO 3
 
+#define EPSILON 0.000001
+
 namespace std {
     size_t hash<Eigen::Vector3d>::operator()(const Eigen::Vector3d& vertex) const {
         size_t hx = std::hash<float>()(vertex.x());
@@ -60,33 +62,74 @@ std::vector<Eigen::Vector3d> Face::getVerts() {
 Eigen::Vector3d Face::getNorm() {
     return _normal;
 }
-bool Face::intersect (const Eigen::Vector3d &orig, const Eigen::Vector3d &dir)
+
+bool Face::triRayIntersectGEO(const Eigen::Vector3d &orig, const
+Eigen::Vector3d &dir, const triangle& tri){
+  double D = -_normal.dot(_v[0]);
+  double t = - (_normal.dot(orig) + D) / _normal.dot(dir);
+  const Eigen::Vector3d P = orig + t*dir;
+
+  Eigen::Vector3d edge0 = tri[1] - tri[0];
+  Eigen::Vector3d edge1 = tri[2] - tri[1];
+  Eigen::Vector3d edge2 = tri[0] - tri[2];
+  Eigen::Vector3d C0 = P - tri[0];
+  Eigen::Vector3d C1 = P - tri[1];
+  Eigen::Vector3d C2 = P - tri[2];
+
+  return _normal.dot(edge0.cross(C0)) >= 0 && _normal.dot(edge1.cross(C1)) >=
+                                      0 && _normal.dot(edge2.cross(C2)) >= 0;
+}
+
+
+//TODO figure out why sometimes back facing shapes are shown
+bool Face::intersectGEO (const Eigen::Vector3d &orig, const Eigen::Vector3d
+&dir)
 {
   if (_normal.dot(orig - dir) == 0){
     return false;
   }
-  double D = -_normal.dot(_v[0]);
-  double t = - (_normal.dot(orig) + D) / _normal.dot(dir);
-  Eigen::Vector3d P = orig + t*dir;
 
-
-  for (triangle tri: _triangles){
-    Eigen::Vector3d edge0 = tri[1] - tri[0];
-    Eigen::Vector3d edge1 = tri[2] - tri[1];
-    Eigen::Vector3d edge2 = tri[0] - tri[2];
-    Eigen::Vector3d C0 = P - tri[0];
-    Eigen::Vector3d C1 = P - tri[1];
-    Eigen::Vector3d C2 = P - tri[2];
-
-    if (_normal.dot(edge0.cross(C0)) >= 0 && _normal.dot(edge1.cross(C1)) >=
-    0 &&
-                                              _normal.dot(edge2.cross(C2))
-                                              >= 0)
+  for (const triangle& tri: _triangles)
+  {
+    if (triRayIntersectGEO (orig, dir, tri))
       return true;
   }
   return false;
 }
 
+bool Face::triRayIntersectMT(const Eigen::Vector3d &orig, const
+Eigen::Vector3d &dir, const triangle& tri){
+  Eigen::Vector3d AB = tri[1] - tri[0];
+  Eigen::Vector3d AC = tri[2] - tri[0];
+  Eigen::Vector3d pvec = dir.cross(AC);
+  double det = AB.dot(pvec);
+
+  if (abs(det) < EPSILON) //if the ray and triangle are parallel
+    return false;
+
+  double invDet = 1 / det;
+
+  Eigen::Vector3d tvec = orig - tri[0];
+  double u = tvec.dot(pvec) * invDet;
+  if (u < 0 || u > 1)
+    return false;
+
+  Eigen::Vector3d qvec = tvec.cross(AB);
+  double v = dir.dot(qvec) * invDet;
+  if (v < 0 || u + v > 1)
+    return false;
+//    t = AB.dot(qvec) * invDet;
+  return true;
+}
+
+bool Face::intersectMT(const Eigen::Vector3d &orig, const Eigen::Vector3d &dir){
+  for (const triangle& tri: _triangles)
+  {
+    if (triRayIntersectMT (orig, dir, tri))
+      return true;
+  }
+  return false;
+}
 
 // Model class implementation
 Model::Model(std::ifstream &objectFile, bool center) {
@@ -203,7 +246,7 @@ bool Model::intersect (const Eigen::Vector3d &orig, const Eigen::Vector3d &dir,
 {
   bool isIntersect = false;
   for (Face face : _faces){
-    if (face.intersect(orig, dir)){
+    if (face.intersectMT (orig, dir)){
       normal = face.getNorm(); //TODO find the closest intersection not the not the last one
       isIntersect = true;
     }
