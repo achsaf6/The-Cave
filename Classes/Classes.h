@@ -28,6 +28,7 @@ private:
     std::vector<Eigen::Vector3d> _v;
     std::vector<triangle> _triangles;
     Eigen::Vector3d _normal;
+    Eigen::Vector3d _pIntersect;
 
 public:
     Face();
@@ -42,6 +43,7 @@ public:
     bool intersectMT (const Eigen::Vector3d &orig, const Eigen::Vector3d &dir);
     bool triRayIntersectMT (const Eigen::Vector3d &orig, const Eigen::Vector3d
     &dir, const triangle &tri);
+  Eigen::Vector3d &getIntersect ();
 };
 
 class Model {
@@ -61,8 +63,8 @@ public:
     std::string toOBJ(const std::string& filePath="");
     void readFile(std::ifstream &objectFile);
     void centering();
-    bool intersect(const Eigen::Vector3d& orig, const Eigen::Vector3d& dir,
-                   Eigen::Vector3d& normal) const;
+    bool
+    intersect (const Eigen::Vector3d &orig, const Eigen::Vector3d &dir, Eigen::Vector3d &normal, Eigen::Vector3d &P) const;
 
 };
 
@@ -80,6 +82,7 @@ class Canvas{
   float getNDCx(int x);
   float getNDCy(int y);
   void draw(char c, int x, int y);
+  void draw(char c, int i);
 
   char& operator[] (size_t index);
   const char& operator[] (size_t index) const;
@@ -94,6 +97,8 @@ private:
   Eigen::Vector3d _cPoint0;
   Eigen::Vector3d _cVec1;
   Eigen::Vector3d _cVec2;
+  Eigen::Vector3d _lightSource;
+  std::vector<std::tuple<double, int, int>> _strokes;
   Canvas _canvas;
 
 public:
@@ -103,7 +108,8 @@ public:
   void rayTrace();
   void print();
   //TODO add a change camera position option
-  void bestRayTrace ();
+  char getStroke (double brightness);
+  void draw ();
 };
 
 #endif // CLASSES_H

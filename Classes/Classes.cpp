@@ -120,7 +120,8 @@ Eigen::Vector3d &dir, const triangle& tri){
   double v = dir.dot(qvec) * invDet;
   if (v < 0 || u + v > 1)
     return false;
-//    t = AB.dot(qvec) * invDet;
+  double t = AC.dot(qvec) * invDet;
+  _pIntersect = orig + t*dir;
   return true;
 }
 
@@ -141,6 +142,10 @@ bool Face::intersectMT(const Eigen::Vector3d &orig, const Eigen::Vector3d &dir){
       return true;
   }
   return false;
+}
+Eigen::Vector3d &Face::getIntersect ()
+{
+  return _pIntersect;
 }
 
 // Model class implementation
@@ -253,13 +258,14 @@ std::string Model::toOBJ(const std::string& filePath) {
     }
     return file;
 }
-bool Model::intersect (const Eigen::Vector3d &orig, const Eigen::Vector3d &dir,
-                  Eigen::Vector3d& normal) const
+bool
+Model::intersect (const Eigen::Vector3d &orig, const Eigen::Vector3d &dir, Eigen::Vector3d &normal, Eigen::Vector3d &P) const
 {
   bool isIntersect = false;
   for (Face face : _faces){
     if (face.intersectMT (orig, dir)){
-      normal = face.getNorm(); //TODO find the closest intersection not the not the last one
+      normal = face.getNorm();
+      P = face.getIntersect();
       isIntersect = true;
     }
   }
@@ -294,14 +300,22 @@ float Canvas::getNDCy(int y)
 {
   return -((2*((y)/_rows) - 1)) / CHAR_DIM; //TODO divide by char dimensions
 }
+
 void Canvas::draw (char c, int x, int y)
 {
   _strokes[x*_cols + y] = c;
 }
+
+void Canvas::draw (char c, int i)
+{
+  _strokes[i] = c;
+}
+
 char& Canvas::operator[] (size_t index)
 {
   return _strokes[index];
 }
+
 const char& Canvas::operator[] (size_t index) const
 {
   return _strokes[index];
@@ -327,7 +341,7 @@ _canvas (getResolution())
 {
   //For now all models are small so were gonna have a set distance
   _origin = Eigen::Vector3d(std::move(origin));
-
+  _lightSource = Eigen::Vector3d(_origin[1], -_origin[0], _origin[2]);
   Eigen::Vector3d normal = _origin.normalized();
 
 
@@ -386,16 +400,51 @@ void Camera::rayTrace()
       Eigen::Vector3d dir = (_cPoint0 + s1*_cVec1 + s2*_cVec2) - _origin;
 
       Eigen::Vector3d normal;
-      if (_model.intersect (_origin, dir, normal)){
-        _canvas.draw('*', i, j);
+      Eigen::Vector3d P;
+      double minDist = INFINITY;
+      if (_model.intersect (_origin, dir, normal, P) && (P - _origin).norm() <
+      minDist){
+        minDist = (P - _origin).norm();
+        Eigen::Vector3d ince = -dir.normalized();
+        Eigen::Vector3d refr = (_lightSource - P).normalized();
+        Eigen::Vector3d inter = ince/2 + refr/2;
+        _strokes.emplace_back(normal.dot (inter), i, j) ;
+
       }
     }
   }
+  draw();
 }
 
 void Camera::print ()
 {
   std::cout << _canvas << std::endl;
+  std::cout << std::flush;
+}
+char Camera::getStroke (double brightness)
+{
+  return 0;
+}
+
+void Camera::draw ()
+{
+  auto minMax = std::minmax_element (_strokes.begin (), _strokes.end (), []
+  (const auto& a, const auto& b) {return std::get<0>(a) < std::get<0>(b);});
+
+  double bright = std::get<0>(*minMax.second);
+  double dark = std::get<0>(*minMax.first);
+
+
+  double range = bright - dark;
+  std::string brush = "$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()"
+             "1{}[]?-_+~<>i!lI;:,^`'.";
+
+  for (int i = 0 ; i < _strokes.size() ; i++){
+    double inter = (bright - std::get<0>(_strokes[i])) / range;
+    int brushIndex = inter*brush.size();
+    _canvas.draw (brush[brushIndex], std::get<1>(_strokes[i]), std::get<2>
+        (_strokes[i]));
+  }
 }
 
 
