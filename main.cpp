@@ -24,7 +24,7 @@ TODO things to add:
 
 int main(){
   std::ios::sync_with_stdio(false);
-    std::ifstream f("../Face.obj");
+    std::ifstream f("../Cube.obj");
     if (!f.is_open()){
         std::cerr << "Unable to open file" << std::endl;
         return EXIT_FAILURE;
@@ -32,19 +32,15 @@ int main(){
 
     Model m(f);
 
-//    std::cout << m.toOBJ();
-
-
-
-
-    Camera c(m);
-
+    Eigen::Vector3d origin(4,4,4);
+    Camera c(m, origin);
     c.rayTrace();
     c.print();
 
 
 
-//TODO intersect triangle
+
+
 //TODO calculate normals
 //TODO "brightness" of letters (is there a better font?)
 

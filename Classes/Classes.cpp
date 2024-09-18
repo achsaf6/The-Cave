@@ -1,10 +1,12 @@
 
 #include "Classes.h"
 
-#define DEBUG_CANVAS {23, 150}
-#define CHAR_RATIO 3
+#include <utility>
 
-#define EPSILON 0.000001
+#define DEBUG_CANVAS {23, 150}
+#define CHAR_DIM 4
+#define CAMERA_ORIGIN 4,4,4
+#define EPSILON 0.0000000000000000000001
 
 namespace std {
     size_t hash<Eigen::Vector3d>::operator()(const Eigen::Vector3d& vertex) const {
@@ -125,6 +127,16 @@ Eigen::Vector3d &dir, const triangle& tri){
 bool Face::intersectMT(const Eigen::Vector3d &orig, const Eigen::Vector3d &dir){
   for (const triangle& tri: _triangles)
   {
+    //for debug purposes
+      double D = -_normal.dot(_v[0]);
+      double t = - (_normal.dot(orig) + D) / _normal.dot(dir);
+      const Eigen::Vector3d P = orig + t*dir;
+
+      bool flag = false;
+      Eigen::Vector3d v(-1,-1,-1);
+      if (v.dot(dir) > 1.5)
+        flag = true;
+
     if (triRayIntersectMT (orig, dir, tri))
       return true;
   }
@@ -259,7 +271,7 @@ bool Model::intersect (const Eigen::Vector3d &orig, const Eigen::Vector3d &dir,
 //Canvas Class implementation
 
 Canvas::Canvas (int rows, int cols): _rows(rows), _cols(cols){
-  _aspectRatio = _cols/_rows;
+  _aspectRatio = _cols/(_rows*CHAR_DIM);
   _strokes.assign(rows*cols, ' ');
 }
 
@@ -275,12 +287,12 @@ float Canvas::cols () const
 
 float Canvas::getNDCx(int x)
 {
-  return (2*(x/_cols) - 1)*_aspectRatio;
+  return (2*(x/_cols) - 1) / _aspectRatio;
 }
 
 float Canvas::getNDCy(int y)
 {
-  return ((2*((y)/_rows) - 1)) * CHAR_RATIO; //TODO divide by char dimensions
+  return -((2*((y)/_rows) - 1)) / CHAR_DIM; //TODO divide by char dimensions
 }
 void Canvas::draw (char c, int x, int y)
 {
@@ -310,15 +322,11 @@ std::ostream& operator<<(std::ostream& os, const Canvas& c){
 
 // Camera class implementation
 
-
-
-//automatic camera position
-Camera::Camera (const Model &model) : _model(model), _canvas (getResolution())
+Camera::Camera (const Model &model, Eigen::Vector3d origin) : _model(model),
+_canvas (getResolution())
 {
-  //TODO calc variance and find most aesthetic angle
   //For now all models are small so were gonna have a set distance
-  _origin = Eigen::Vector3d(4, 4, 4);
-//  _origin = Eigen::Vector3d(8, 8, 8);
+  _origin = Eigen::Vector3d(std::move(origin));
 
   Eigen::Vector3d normal = _origin.normalized();
 
@@ -332,6 +340,13 @@ Camera::Camera (const Model &model) : _model(model), _canvas (getResolution())
   _cVec1 = (up - up.dot(normal) * normal).normalized();
   _cVec2 = (normal.cross(_cVec1)).normalized();
 }
+
+
+//TODO calc variance and find most aesthetic angle
+//Default camera position
+Camera::Camera (const Model &model) : Camera (model, Eigen::Vector3d(CAMERA_ORIGIN))
+{}
+
 
 
 
@@ -368,7 +383,8 @@ void Camera::rayTrace()
       float s1 = _canvas.getNDCy(i);
       float s2 = _canvas.getNDCx(j);
 
-      Eigen::Vector3d dir = _cPoint0 + s1*_cVec1 + s2*_cVec2;
+      Eigen::Vector3d dir = (_cPoint0 + s1*_cVec1 + s2*_cVec2) - _origin;
+
       Eigen::Vector3d normal;
       if (_model.intersect (_origin, dir, normal)){
         _canvas.draw('*', i, j);
@@ -381,6 +397,5 @@ void Camera::print ()
 {
   std::cout << _canvas << std::endl;
 }
-
 
 

@@ -98,10 +98,12 @@ private:
 
 public:
   Camera(const Model& model);
+  Camera(const Model& model, Eigen::Vector3d origin);
   Canvas getResolution();
   void rayTrace();
   void print();
   //TODO add a change camera position option
+  void bestRayTrace ();
 };
 
 #endif // CLASSES_H
