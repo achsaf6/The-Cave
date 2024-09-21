@@ -31,12 +31,17 @@ int main(){
     }
 
     Model m(f);
-
     Eigen::Vector3d origin(4,4,4);
     Camera c(m, origin);
-    c.rayTrace();
-    c.print();
 
+    while(true){
+      std::cout << "\033[2J\033[H";
+      c.rayTrace();
+      c.print();
+      m.rotate (M_PI/20);
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    std::cout << std::endl;
 
 
 

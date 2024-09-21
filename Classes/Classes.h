@@ -12,6 +12,11 @@
 #include <cstdio>
 #include <Eigen/Dense>
 #include <list>
+#include <memory>
+#include <chrono>
+#include <thread>
+#include <termios.h>
+#include <fcntl.h>
 
 namespace std {
     template <>
@@ -21,21 +26,22 @@ namespace std {
 }
 
 
-typedef std::array<Eigen::Vector3d, 3> triangle;
+typedef std::shared_ptr<Eigen::Vector3d> v3DPtr;
+typedef std::array<v3DPtr, 3> triangle;
 
 class Face {
 private:
-    std::vector<Eigen::Vector3d> _v;
+    std::vector<v3DPtr> _v;
     std::vector<triangle> _triangles;
-    Eigen::Vector3d _normal;
+    v3DPtr _normalPtr;
     Eigen::Vector3d _pIntersect;
 
 public:
     Face();
-    Face(Eigen::Vector3d& normal);
-    void push_back(Eigen::Vector3d& vertex);
-    std::vector<Eigen::Vector3d> getVerts();
-    Eigen::Vector3d getNorm();
+    Face(v3DPtr normal);
+    void push_back(const v3DPtr& vertex);
+    std::vector<v3DPtr> getVerts();
+    v3DPtr getNorm();
     bool intersectGEO(const Eigen::Vector3d &orig, const Eigen::Vector3d &dir);
     bool triRayIntersectGEO (const Eigen::Vector3d &orig, const Eigen::Vector3d
     &dir, const triangle &tri);
@@ -46,35 +52,34 @@ public:
   Eigen::Vector3d &getIntersect ();
 };
 
+
 class Model {
 private:
     std::string _name;
-    std::vector<Eigen::Vector3d> _vertices;
-    std::vector<Eigen::Vector3d> _vertexNormals;
+    std::vector<v3DPtr> _vertices;
+    std::vector<v3DPtr> _vertexNormals;
     std::vector<Face> _faces;
-    std::unordered_map<Eigen::Vector3d, unsigned long> _vertexIndexMap;
-    std::unordered_map<Eigen::Vector3d, unsigned long> _normalIndexMap;
+    std::unordered_map<v3DPtr, unsigned long> _vertexIndexMap;
+    std::unordered_map<v3DPtr, unsigned long> _normalIndexMap;
     Eigen::Vector3d _centerVector = Eigen::Vector3d(0,0,0);
 
 public:
     explicit Model(std::ifstream &objectFile, bool center=true);
-
     std::string factory(const std::string& command, std::istringstream &stream);
     std::string toOBJ(const std::string& filePath="");
     void readFile(std::ifstream &objectFile);
     void centering();
-    bool
-    intersect (const Eigen::Vector3d &orig, const Eigen::Vector3d &dir, Eigen::Vector3d &normal, Eigen::Vector3d &P) const;
-
+    bool intersect (const Eigen::Vector3d &orig, const Eigen::Vector3d &dir, Eigen::Vector3d &normal, Eigen::Vector3d &P) const;
+    void rotate(double theta);
 };
 
 class Canvas{
  private:
-    float _rows;
-    float _cols;
-    float _aspectRatio;
-    std::string _strokes; //Like in painting
-
+  float _aspectRatio;
+  //Like in painting
+  float _rows;
+  float _cols;
+  std::string _strokes;
  public:
   Canvas(int rows, int cols);
   float rows() const;
@@ -83,10 +88,11 @@ class Canvas{
   float getNDCy(int y);
   void draw(char c, int x, int y);
   void draw(char c, int i);
+  void clear();
 
   char& operator[] (size_t index);
   const char& operator[] (size_t index) const;
-  friend std::ostream& operator<<(std::ostream& os, const Canvas& c);
+  friend std::ostream& operator<<(std::ostream& os, Canvas& c);
 
 };
 

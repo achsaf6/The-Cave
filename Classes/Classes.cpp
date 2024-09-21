@@ -3,7 +3,7 @@
 
 #include <utility>
 
-#define DEBUG_CANVAS {23, 150}
+#define DEBUG_CANVAS {22, 150}
 #define CHAR_DIM 4
 #define CAMERA_ORIGIN 4,4,4
 #define EPSILON 0.0000000000000000000001
@@ -18,24 +18,23 @@ namespace std {
 }
 
 // Face class implementation
-Face::Face() : _normal(Eigen::Vector3d()) {}
+Face::Face() : _normalPtr(std::make_shared<Eigen::Vector3d>()) {}
 
-Face::Face(Eigen::Vector3d& normal) : _normal(normal) {}
+Face::Face(v3DPtr normalPtr) : _normalPtr(std::move(normalPtr)) {}
 
-void Face::push_back(Eigen::Vector3d& vertex) {
-    _v.push_back(vertex);
+void Face::push_back(const v3DPtr& vertexPtr) {
+    _v.push_back(vertexPtr);
 }
-
 
 //TODO make this work for non-convex shapes
 void Face::triangulate ()
 {
   // converts a face into a list of triangles
-  std::list<Eigen::Vector3d> tempV(_v.begin(), _v.end());
+  std::list<v3DPtr> tempV(_v.begin(), _v.end());
   bool popFlag = true;
-  Eigen::Vector3d v0;
-  Eigen::Vector3d v1;
-  Eigen::Vector3d v2;
+  v3DPtr v0;
+  v3DPtr v1;
+  v3DPtr v2;
   while (tempV.size() != 3){
     if (popFlag){
       v0 = tempV.front();
@@ -57,29 +56,31 @@ void Face::triangulate ()
   _triangles.push_back({v0, v1, v2});
 }
 
-std::vector<Eigen::Vector3d> Face::getVerts() {
+std::vector<v3DPtr> Face::getVerts() {
     return _v;
 }
 
-Eigen::Vector3d Face::getNorm() {
-    return _normal;
+v3DPtr Face::getNorm() {
+    return _normalPtr;
 }
 
 bool Face::triRayIntersectGEO(const Eigen::Vector3d &orig, const
 Eigen::Vector3d &dir, const triangle& tri){
-  double D = -_normal.dot(_v[0]);
-  double t = - (_normal.dot(orig) + D) / _normal.dot(dir);
+  double D = -_normalPtr->dot(*_v[0]);
+  double t = - (_normalPtr->dot(orig) + D) / _normalPtr->dot(dir);
   const Eigen::Vector3d P = orig + t*dir;
 
-  Eigen::Vector3d edge0 = tri[1] - tri[0];
-  Eigen::Vector3d edge1 = tri[2] - tri[1];
-  Eigen::Vector3d edge2 = tri[0] - tri[2];
-  Eigen::Vector3d C0 = P - tri[0];
-  Eigen::Vector3d C1 = P - tri[1];
-  Eigen::Vector3d C2 = P - tri[2];
+  Eigen::Vector3d edge0 = *(tri[1]) - *(tri[0]);
+  Eigen::Vector3d edge1 = *(tri[2]) - *(tri[1]);
+  Eigen::Vector3d edge2 = *(tri[0]) - *(tri[2]);
+  Eigen::Vector3d C0 = P - *(tri[0]);
+  Eigen::Vector3d C1 = P - *(tri[1]);
+  Eigen::Vector3d C2 = P - *(tri[2]);
 
-  return _normal.dot(edge0.cross(C0)) >= 0 && _normal.dot(edge1.cross(C1)) >=
-                                      0 && _normal.dot(edge2.cross(C2)) >= 0;
+  return _normalPtr->dot(edge0.cross(C0)) >= 0 && _normalPtr->dot(edge1.cross
+  (C1)) >=
+                                                 0 && _normalPtr->dot(edge2
+                                                 .cross(C2)) >= 0;
 }
 
 
@@ -87,7 +88,7 @@ Eigen::Vector3d &dir, const triangle& tri){
 bool Face::intersectGEO (const Eigen::Vector3d &orig, const Eigen::Vector3d
 &dir)
 {
-  if (_normal.dot(orig - dir) == 0){
+  if (_normalPtr->dot(orig - dir) == 0){
     return false;
   }
 
@@ -101,8 +102,8 @@ bool Face::intersectGEO (const Eigen::Vector3d &orig, const Eigen::Vector3d
 
 bool Face::triRayIntersectMT(const Eigen::Vector3d &orig, const
 Eigen::Vector3d &dir, const triangle& tri){
-  Eigen::Vector3d AB = tri[1] - tri[0];
-  Eigen::Vector3d AC = tri[2] - tri[0];
+  Eigen::Vector3d AB = *(tri[1]) - *(tri[0]);
+  Eigen::Vector3d AC = *(tri[2]) - *(tri[0]);
   Eigen::Vector3d pvec = dir.cross(AC);
   double det = AB.dot(pvec);
 
@@ -111,7 +112,7 @@ Eigen::Vector3d &dir, const triangle& tri){
 
   double invDet = 1 / det;
 
-  Eigen::Vector3d tvec = orig - tri[0];
+  Eigen::Vector3d tvec = orig - *(tri[0]);
   double u = tvec.dot(pvec) * invDet;
   if (u < 0 || u > 1)
     return false;
@@ -129,8 +130,8 @@ bool Face::intersectMT(const Eigen::Vector3d &orig, const Eigen::Vector3d &dir){
   for (const triangle& tri: _triangles)
   {
     //for debug purposes
-      double D = -_normal.dot(_v[0]);
-      double t = - (_normal.dot(orig) + D) / _normal.dot(dir);
+      double D = -_normalPtr->dot(*_v[0]);
+      double t = - (_normalPtr->dot(orig) + D) / _normalPtr->dot(dir);
       const Eigen::Vector3d P = orig + t*dir;
 
       bool flag = false;
@@ -160,8 +161,8 @@ void Model::centering(){
     Eigen::Vector3d antiVect = (Eigen::Vector3d(0,0,0) - _centerVector)/(float)
         _vertices
         .size();
-    for (auto& v: _vertices){
-        v += antiVect;
+    for (v3DPtr v: _vertices){
+        *v += antiVect;
     }
 }
 
@@ -187,8 +188,9 @@ std::string Model::factory(const std::string& command, std::istringstream &strea
     if (command == "v") {
         float x, y, z;
         stream >> x >> y >> z;
-        Eigen::Vector3d v(x, y, z);
-        _centerVector += v;
+        std::shared_ptr<Eigen::Vector3d> v =
+            std::make_shared<Eigen::Vector3d>(x, y, z);
+        _centerVector += *v;
         _vertices.push_back(v);
         _vertexIndexMap[v] = _vertices.size();
         return "Eigen::Vector3d";
@@ -196,7 +198,8 @@ std::string Model::factory(const std::string& command, std::istringstream &strea
     if (command == "vn") {
         float x, y, z;
         stream >> x >> y >> z;
-        Eigen::Vector3d v(x, y, z);
+      std::shared_ptr<Eigen::Vector3d> v =
+          std::make_shared<Eigen::Vector3d>(x, y, z);
         _vertexNormals.push_back(v);
         _normalIndexMap[v] = _vertexNormals.size();
         return "VertexNormals";
@@ -237,11 +240,11 @@ std::string operator+(std::string lhs, const Eigen::Vector3d& rhs) {
 std::string Model::toOBJ(const std::string& filePath) {
     bool export_ = !(filePath.empty());
     std::string file = "o " + _name + "\n";
-    for (const auto& vertex : _vertices) {
-        file += "v " + vertex + "\n";
+    for (const auto vertex : _vertices) {
+        file += "v " + *vertex + "\n";
     }
     for (const auto& normal : _vertexNormals) {
-        file += "vn " + normal + "\n";
+        file += "vn " + *normal + "\n";
     }
     for (Face& face : _faces) {
         file += "f ";
@@ -264,12 +267,32 @@ Model::intersect (const Eigen::Vector3d &orig, const Eigen::Vector3d &dir, Eigen
   bool isIntersect = false;
   for (Face face : _faces){
     if (face.intersectMT (orig, dir)){
-      normal = face.getNorm();
+      normal = *face.getNorm();
       P = face.getIntersect();
       isIntersect = true;
     }
   }
   return isIntersect;
+}
+void Model::rotate (double theta)
+{
+  float cosTheta = cos(theta);
+  float sinTheta = sin(theta);
+  Eigen::Matrix3d rot;
+
+  //rotate around the Z axis;
+  rot << cosTheta, -sinTheta, 0,
+         sinTheta, cosTheta,  0,
+         0,        0,         1;
+
+  for (v3DPtr v : _vertices){
+    *v = rot * (*v);
+  }
+
+  for (v3DPtr n : _vertexNormals) {
+    *n = rot * (*n);
+  }
+
 }
 
 
@@ -311,6 +334,11 @@ void Canvas::draw (char c, int i)
   _strokes[i] = c;
 }
 
+void Canvas::clear ()
+{
+  _strokes.assign(_rows*_cols, ' ');
+}
+
 char& Canvas::operator[] (size_t index)
 {
   return _strokes[index];
@@ -321,14 +349,16 @@ const char& Canvas::operator[] (size_t index) const
   return _strokes[index];
 }
 
-std::ostream& operator<<(std::ostream& os, const Canvas& c){
+std::ostream& operator<<(std::ostream& os, Canvas& c){
   std::string output = c._strokes;
   for (int i = c._rows ; i > 0 ; i--){
     output.insert(i*c._cols, "\n");
   }
+  c.clear();
   os << output;
   return os;
 }
+
 
 
 
@@ -409,7 +439,8 @@ void Camera::rayTrace()
         Eigen::Vector3d refr = (_lightSource - P).normalized();
         Eigen::Vector3d inter = ince/2 + refr/2;
         _strokes.emplace_back(normal.dot (inter), i, j) ;
-
+      } else {
+        _strokes.emplace_back(-INFINITY, i, j);
       }
     }
   }
@@ -419,11 +450,6 @@ void Camera::rayTrace()
 void Camera::print ()
 {
   std::cout << _canvas << std::endl;
-  std::cout << std::flush;
-}
-char Camera::getStroke (double brightness)
-{
-  return 0;
 }
 
 void Camera::draw ()
@@ -431,19 +457,33 @@ void Camera::draw ()
   auto minMax = std::minmax_element (_strokes.begin (), _strokes.end (), []
   (const auto& a, const auto& b) {return std::get<0>(a) < std::get<0>(b);});
 
-  double bright = std::get<0>(*minMax.second);
-  double dark = std::get<0>(*minMax.first);
+  double brightest = -INFINITY;
+  double darkest = INFINITY;
 
 
-  double range = bright - dark;
+  for (std::tuple<double, int, int> stroke : _strokes){
+    double shine = std::get<0>(stroke);
+    if ( shine == INFINITY || shine == -INFINITY)
+      continue;
+    if (shine < darkest)
+      darkest = shine;
+    if (shine > brightest)
+      brightest = shine;
+  }
+
+  double range = brightest - darkest;
   std::string brush = "$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()"
              "1{}[]?-_+~<>i!lI;:,^`'.";
-
   for (int i = 0 ; i < _strokes.size() ; i++){
-    double inter = (bright - std::get<0>(_strokes[i])) / range;
-    int brushIndex = inter*brush.size();
-    _canvas.draw (brush[brushIndex], std::get<1>(_strokes[i]), std::get<2>
-        (_strokes[i]));
+    double shine = std::get<0>(_strokes[i]);
+    if (shine == -INFINITY){
+      _canvas.draw(' ',std::get<1>(_strokes[i]), std::get<2>(_strokes[i]));
+    } else {
+      double inter = (brightest - shine) / range;
+      int brushIndex = inter * brush.size ();
+      _canvas.draw (brush[brushIndex], std::get<1> (_strokes[i]), std::get<2>
+          (_strokes[i]));
+    }
   }
 }
 
