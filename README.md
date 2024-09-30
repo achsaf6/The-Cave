@@ -12,3 +12,5 @@ In **The Cave**, 3D objects are reduced to simple ASCII representations, much li
 - Supports basic camera transformations (rotation, scaling).
 - Lightweight, runs entirely in the command line.
 - No external graphical interface, sticking to the minimalist philosophy.
+
+![Rotating-Cube]()

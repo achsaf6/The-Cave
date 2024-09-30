@@ -129,10 +129,6 @@ Eigen::Vector3d &dir, const triangle& tri){
 bool Face::intersectMT(const Eigen::Vector3d &orig, const Eigen::Vector3d &dir){
   for (const triangle& tri: _triangles)
   {
-    //for debug purposes
-      double D = -_normalPtr->dot(*_v[0]);
-      double t = - (_normalPtr->dot(orig) + D) / _normalPtr->dot(dir);
-      const Eigen::Vector3d P = orig + t*dir;
 
       bool flag = false;
       Eigen::Vector3d v(-1,-1,-1);
@@ -261,19 +257,22 @@ std::string Model::toOBJ(const std::string& filePath) {
     }
     return file;
 }
-bool
-Model::intersect (const Eigen::Vector3d &orig, const Eigen::Vector3d &dir, Eigen::Vector3d &normal, Eigen::Vector3d &P) const
+bool Model::intersect (const Eigen::Vector3d &orig, const Eigen::Vector3d
+&dir, Eigen::Vector3d &normal, Eigen::Vector3d &P) const
 {
-  bool isIntersect = false;
+  double minDist = INFINITY;
+  bool flag = false;
   for (Face face : _faces){
-    if (face.intersectMT (orig, dir)){
-      normal = *face.getNorm();
+    if (face.intersectMT (orig, dir) && (face.getIntersect() - orig).norm() < minDist){
       P = face.getIntersect();
-      isIntersect = true;
+      minDist = (P - orig).norm();
+      flag = true;
+      normal = *face.getNorm();
     }
   }
-  return isIntersect;
+  return minDist != INFINITY;
 }
+
 void Model::rotate (double theta)
 {
   float cosTheta = cos(theta);
@@ -431,10 +430,7 @@ void Camera::rayTrace()
 
       Eigen::Vector3d normal;
       Eigen::Vector3d P;
-      double minDist = INFINITY;
-      if (_model.intersect (_origin, dir, normal, P) && (P - _origin).norm() <
-      minDist){
-        minDist = (P - _origin).norm();
+      if (_model.intersect(_origin, dir, normal, P)){
         Eigen::Vector3d ince = -dir.normalized();
         Eigen::Vector3d refr = (_lightSource - P).normalized();
         Eigen::Vector3d inter = ince/2 + refr/2;

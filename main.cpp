@@ -24,7 +24,7 @@ TODO things to add:
 
 int main(){
   std::ios::sync_with_stdio(false);
-    std::ifstream f("../Face.obj");
+    std::ifstream f("../Cube.obj");
     if (!f.is_open()){
         std::cerr << "Unable to open file" << std::endl;
         return EXIT_FAILURE;
