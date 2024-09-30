@@ -13,4 +13,4 @@ In **The Cave**, 3D objects are reduced to simple ASCII representations, much li
 - Lightweight, runs entirely in the command line.
 - No external graphical interface, sticking to the minimalist philosophy.
 
-![Rotating-Cube]()
+![Rotating-Cube](https://github.com/achsaf6/The-Cave/blob/main/Assets/Cube.gif)
